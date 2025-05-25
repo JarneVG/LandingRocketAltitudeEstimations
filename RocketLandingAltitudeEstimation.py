@@ -105,7 +105,7 @@ motor_specs = {
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("Select Motor for Ascent")
+    st.subheader("Ascent")
     numOfMotors = st.slider("Number of Ascent Motors", 1, 5, value=2)
     motor_choice = st.selectbox("Select Motor for Ascent", ["Klima C6", "Klima D3", "Klima D9"])
 
@@ -126,7 +126,7 @@ ascent_propellant_mass = motor_specs[motor_choice]["propellant_mass"] * numOfMot
 
 
 with col2:
-    st.subheader("Select Motor for Landing")
+    st.subheader("Landing")
     numOfDescentMotors = st.slider("Number of Descent Motors", 1, 5, value=2)
     landing_motor_choice = st.selectbox("Select Landing Motor", ["None", "Klima C6", "Klima D3", "Klima D9"])
 
@@ -149,7 +149,7 @@ with col2:
         landing_propellant_mass = 0.0
 
 st.subheader("Delay After Apogee to Fire Landing Motor (s)")
-landing_motor_delay = st.slider("", 0.0, 5.0, 1.0, step=0.01)
+landing_motor_delay = st.slider("Delay", 0.0, 5.0, 1.0, step=0.01)
 
 landing_thrust_func = interp1d(
     landing_thrust_data[:, 0], landing_thrust_data[:, 1], bounds_error=False, fill_value=0.0
