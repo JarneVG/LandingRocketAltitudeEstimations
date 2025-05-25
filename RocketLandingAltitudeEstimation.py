@@ -148,7 +148,8 @@ with col2:
         landing_burn_time = 0.0
         landing_propellant_mass = 0.0
 
-landing_motor_delay = st.slider("Delay After Apogee to Fire Landing Motor (s)", 0.0, 5.0, 1.0, step=0.01)
+st.subheader("Delay After Apogee to Fire Landing Motor (s)")
+landing_motor_delay = st.slider("", 0.0, 5.0, 1.0, step=0.01)
 
 landing_thrust_func = interp1d(
     landing_thrust_data[:, 0], landing_thrust_data[:, 1], bounds_error=False, fill_value=0.0
