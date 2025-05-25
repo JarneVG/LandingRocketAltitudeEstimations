@@ -107,7 +107,7 @@ col1, col2 = st.columns(2)
 with col1:
     st.subheader("Ascent")
     numOfMotors = st.slider("Number of Ascent Motors", 1, 5, value=2)
-    motor_choice = st.selectbox("Select Motor for Ascent", ["Klima D9", "Klima D3", "Klima C6"])
+    motor_choice = st.selectbox("Select Motor for Ascent", ["Klima D3","Klima D9", "Klima C6"])
 
     if motor_choice == "Klima C6":
         thrust_data = KlimaC6
