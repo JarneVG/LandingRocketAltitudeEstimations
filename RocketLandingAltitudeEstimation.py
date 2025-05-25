@@ -294,7 +294,7 @@ ax.text(0.99, 0.8, textstr, transform=ax.transAxes, fontsize=10,
 st.pyplot(fig)
 
 
-if drop_height < 0.5:
+if drop_height < 0.5 and i < n_steps-5 and landing_motor_burnout == True:
     st.balloons()
 
 # === MASS OR WEIGHT PLOT ===
