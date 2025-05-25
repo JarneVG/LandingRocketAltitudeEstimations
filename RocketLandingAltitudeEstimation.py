@@ -295,7 +295,7 @@ st.pyplot(fig)
 
 
 if drop_height < 0.5:
-    st.ball
+    st.balloons()
 
 # === MASS OR WEIGHT PLOT ===
 fig2, ax2 = plt.subplots(figsize=(10, 4))
