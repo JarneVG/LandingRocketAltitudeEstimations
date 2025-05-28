@@ -4,6 +4,13 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
+import matplotlib.animation as animation
+import streamlit.components.v1 as components
+import io
+from matplotlib.animation import PillowWriter
+import time
+
+
 
 st.title("Rocket Altitude Simulation")
 
@@ -308,4 +315,72 @@ ax2.legend()
 ax2.grid(True)
 
 st.pyplot(fig2)
+
+
+
+# Streamlit title
+st.title("Rocket Animation")
+col3, col4 = st.columns(2)
+with col3:
+    run_animation = st.toggle("Play animation")
+    st.button("Replay")
+with col4:
+    downsample_factor = st.slider("Choose downsampling factor", 1, 1000, 250)
+if run_animation:
+    # downsample
+    # Choose your downsampling factor
+    downsample_factor = 250  #
+
+    # Apply downsampling
+    time_array = time_array[::downsample_factor]
+    altitude_array = altitude_array[::downsample_factor]
+    thrust_array = thrust_array[::downsample_factor]
+
+
+    # Streamlit place-holder for plot
+    plot_placeholder = st.empty()
+
+    # Animation loop
+    for i in range(1, len(time_array)):
+        ax.cla()  # Clear only the axes, not the whole figure
+        # Slice data
+        alt = altitude_array[:i]
+        thrust = thrust_array[:i]
+        time_data = time_array[:i]
+
+        # Current state
+        current_alt = alt[-1]
+        current_thrust = thrust[-1]
+
+        # Plotting
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.set_xlim(-2, 2)
+        ax.set_ylim(0, max(altitude_array) + 10)
+
+        # Draw rocket as rectangle
+        rocket_width = 0.1
+        rocket_height = 10
+        rocket_x = -rocket_width / 2
+        rocket_y = current_alt
+
+        rocket = plt.Rectangle((rocket_x, rocket_y), rocket_width, rocket_height, color='gray')
+        ax.add_patch(rocket)
+
+        # Draw thrust as triangle
+        flame_height = current_thrust / max(thrust_array) * 10  # Scale factor
+        flame = plt.Polygon(
+            [[rocket_x, rocket_y],
+            [rocket_x + rocket_width, rocket_y],
+            [rocket_x + rocket_width / 2, rocket_y - flame_height]],
+            color='orange'
+        )
+        ax.add_patch(flame)
+
+        # Labeling
+        ax.set_title(f"Time = {time_data[-1]:.2f} s | Altitude = {current_alt:.2f} m")
+        ax.set_xlabel("Rocket X")
+        ax.set_ylabel("Altitude (m)")
+
+        # Streamlit plot update
+        plot_placeholder.pyplot(fig)
 
