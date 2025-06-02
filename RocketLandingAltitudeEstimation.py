@@ -6,9 +6,7 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 import matplotlib.animation as animation
 import streamlit.components.v1 as components
-import io
 from matplotlib.animation import PillowWriter
-import time
 
 
 
@@ -56,6 +54,26 @@ KlimaC6 = np.array([
     [1.701, 0.0],
 ])
 
+KlimaC6_mass = np.array([
+    [0.000, 9.60000],
+    [0.046, 9.57895],
+    [0.168, 9.21498],
+    [0.235, 8.72326],
+    [0.291, 8.05029],
+    [0.418, 6.53342],
+    [0.505, 5.80575],
+    [0.582, 5.28150],
+    [0.679, 4.68676],
+    [0.786, 4.07772],
+    [1.260, 1.48401],
+    [1.357, 0.96385],
+    [1.423, 0.63167],
+    [1.469, 0.43046],
+    [1.618, 0.04863],
+    [1.701, 0.00000],
+])
+
+
 KlimaD3 = np.array([  
     [0, 0],
     [0.073, 0.229],
@@ -83,6 +101,34 @@ KlimaD3 = np.array([
     [6.26, 0.0],
 ])
 
+KlimaD3_mass = np.array([
+    [0.000, 17.000],
+    [0.073, 16.9921],
+    [0.178, 16.947],
+    [0.251, 16.8793],
+    [0.313, 16.7777],
+    [0.375, 16.6077],
+    [0.425, 16.4047],
+    [0.473, 16.146],
+    [0.556, 15.5749],
+    [0.603, 15.1953],
+    [0.655, 14.8061],
+    [0.698, 14.5559],
+    [0.782, 14.1709],
+    [0.873, 13.8346],
+    [1.024, 13.3577],
+    [1.176, 12.9226],
+    [5.282, 1.61027],
+    [5.491, 1.04565],
+    [5.590, 0.796852],
+    [5.782, 0.402106],
+    [5.924, 0.192218],
+    [6.061, 0.063356],
+    [6.170, 0.0120934],
+    [6.260, 0.000],
+])
+
+
 KlimaD9 = np.array([
     [0.000, 0.000],
     [0.040, 2.111],
@@ -102,6 +148,37 @@ KlimaD9 = np.array([
     [2.242, 0.000],
 ])
 
+
+KlimaD9_mass = np.array([
+    [0.000, 16.1000],
+    [0.040, 16.0659],
+    [0.116, 15.7044],
+    [0.213, 14.3477],
+    [0.286, 13.1484],
+    [0.329, 12.6592],
+    [0.369, 12.2859],
+    [0.420, 11.8667],
+    [0.495, 11.2954],
+    [0.597, 10.5519],
+    [1.711, 2.54603],
+    [1.826, 1.7287],
+    [1.917, 1.11399],
+    [1.975, 0.763006],
+    [2.206, 0.0155338],
+    [2.242, 0.0000],
+])
+
+KlimaC6_mass_normalized = np.copy(KlimaC6_mass)
+KlimaC6_mass_normalized[:, 1] = KlimaC6_mass[:, 1] / KlimaC6_mass[0, 1]
+
+KlimaD3_mass_normalized = np.copy(KlimaD3_mass)
+KlimaD3_mass_normalized[:, 1] = KlimaD3_mass[:, 1] / KlimaD3_mass[0, 1]
+
+KlimaD9_mass_normalized = np.copy(KlimaD9_mass)
+KlimaD9_mass_normalized[:, 1] = KlimaD9_mass[:, 1] / KlimaD9_mass[0, 1]
+
+
+# Change motor weights etc here, interpolation still happens according to the mass loss curve
 motor_specs = {
     "Klima C6": {"propellant_mass": 0.0096, "burn_time": KlimaC6[-1, 0], "total_motor_mass": 0.0205},
     "Klima D3": {"propellant_mass": 0.017, "burn_time": KlimaD3[-1, 0], "total_motor_mass": 0.0279},
@@ -114,7 +191,7 @@ col1, col2 = st.columns(2)
 with col1:
     st.subheader("Ascent")
     numOfMotors = st.slider("Number of Ascent Motors", 1, 5, value=2)
-    motor_choice = st.selectbox("Select Motor for Ascent", ["Klima D3","Klima D9", "Klima C6"])
+    motor_choice = st.selectbox("Select Motor for Ascent", ["Klima D9","Klima D3", "Klima C6"])
 
     if motor_choice == "Klima C6":
         thrust_data = KlimaC6
@@ -162,6 +239,20 @@ landing_thrust_func = interp1d(
     landing_thrust_data[:, 0], landing_thrust_data[:, 1], bounds_error=False, fill_value=0.0
 )
 
+# Interpolation functions for normalized mass
+mass_profiles = {
+    "Klima C6": interp1d(KlimaC6_mass_normalized[:, 0], KlimaC6_mass_normalized[:, 1],
+                         bounds_error=False, fill_value=(1.0, 0.0)),
+    "Klima D3": interp1d(KlimaD3_mass_normalized[:, 0], KlimaD3_mass_normalized[:, 1],
+                         bounds_error=False, fill_value=(1.0, 0.0)),
+    "Klima D9": interp1d(KlimaD9_mass_normalized[:, 0], KlimaD9_mass_normalized[:, 1],
+                         bounds_error=False, fill_value=(1.0, 0.0)),
+}
+
+ascent_mass_func = mass_profiles[motor_choice]
+landing_mass_func = mass_profiles[landing_motor_choice] if landing_motor_choice != "None" else lambda x: 0.0
+
+
 
 
 # Interpolate thrust curve
@@ -185,6 +276,10 @@ has_fired_landing_motor = False
 remaining_ascent_fuel = ascent_propellant_mass
 remaining_landing_fuel = landing_propellant_mass
 
+# Initialize variables to store previous mass fractions
+prev_ascent_mass_frac = 1.0
+prev_landing_mass_frac = 1.0
+
 ascent_motor_ejected = False
 landing_motor_burnout = False
 touchdown_velocity = 0
@@ -195,26 +290,31 @@ landing_motor_start_time = 1000
 for i in range(n_steps):
     t = i * dt
     
-    # Decrease mass due to fuel burn
-    if t <= ascent_burn_time and remaining_ascent_fuel > 0:
-        burn_rate_ascent = ascent_propellant_mass / ascent_burn_time
-        mass -= burn_rate_ascent * dt
-        remaining_ascent_fuel -= burn_rate_ascent * dt
-    
-    # Eject ascent motor if burn just ended
+    # Get current normalized mass fraction from profile
+    if t <= ascent_burn_time:
+        curr_ascent_mass_frac = ascent_mass_func(t)
+        burned_propellant = (prev_ascent_mass_frac - curr_ascent_mass_frac) * ascent_propellant_mass
+        mass -= burned_propellant
+        remaining_ascent_fuel -= burned_propellant
+        prev_ascent_mass_frac = curr_ascent_mass_frac
+
+    # Eject ascent motor
     if ejectAscentMotor and not ascent_motor_ejected and t > ascent_burn_time:
         mass -= ejected_motor_mass
         ascent_motor_ejected = True
 
-    # Decrease mass during landing burn
-    if has_fired_landing_motor and (t - landing_motor_start_time) <= landing_burn_time and remaining_landing_fuel > 0:
-        burn_rate_landing = landing_propellant_mass / landing_burn_time
-        mass -= burn_rate_landing * dt
-        remaining_landing_fuel -= burn_rate_landing * dt
+    # Landing burn logic using mass profile
+    if has_fired_landing_motor and (t - landing_motor_start_time) <= landing_burn_time:
+        curr_landing_mass_frac = landing_mass_func(t - landing_motor_start_time)
+        burned_landing_propellant = (prev_landing_mass_frac - curr_landing_mass_frac) * landing_propellant_mass
+        mass -= burned_landing_propellant
+        remaining_landing_fuel -= burned_landing_propellant
+        prev_landing_mass_frac = curr_landing_mass_frac
     
     # Check if motor has burned out
-    if (t - landing_motor_start_time) >= landing_burn_time-0.5:
-        landing_motor_burnout = True
+    if (t - landing_motor_start_time) >= landing_burn_time-2:
+        if landing_thrust*numOfMotors < mass*9.81:
+            landing_motor_burnout = True
 
 
     # Thrust from ascent motor
