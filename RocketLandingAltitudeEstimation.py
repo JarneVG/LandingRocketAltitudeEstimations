@@ -35,6 +35,52 @@ g = 9.81
 
 
 # === Thrust Curve Definitions ===
+KlimaC2 = np.array([
+    [0.0, 0.0],
+    [0.04, 0.229],
+    [0.12, 0.658],
+    [0.211, 1.144],
+    [0.291, 1.831],
+    [0.385, 2.86],
+    [0.447, 3.833],
+    [0.505, 5.001],
+    [0.567, 3.89],
+    [0.615, 3.146],
+    [0.665, 2.66],
+    [0.735, 2.203],
+    [0.815, 2.088],
+    [0.93, 1.98],
+    [4.589, 1.96],
+    [4.729, 1.888],
+    [4.815, 1.602],
+    [4.873, 1.259],
+    [4.969, 0.658],
+    [5.083, 0.0]
+])
+
+KlimaC2_mass = np.array([
+    [0.0, 11.3],
+    [0.04, 11.2948],
+    [0.12, 11.2544],
+    [0.211, 11.1611],
+    [0.291, 11.0257],
+    [0.385, 10.7748],
+    [0.447, 10.5387],
+    [0.505, 10.2472],
+    [0.567, 9.93361],
+    [0.615, 9.74146],
+    [0.665, 9.5763],
+    [0.735, 9.38263],
+    [0.815, 9.18732],
+    [0.93, 8.92116],
+    [4.589, 0.719051],
+    [4.729, 0.412551],
+    [4.815, 0.24179],
+    [4.873, 0.147381],
+    [4.969, 0.0426774],
+    [5.083, 0.0]
+])
+
 KlimaC6 = np.array([    
     [0, 0],
     [0.046, 0.953],
@@ -168,6 +214,9 @@ KlimaD9_mass = np.array([
     [2.242, 0.0000],
 ])
 
+KlimaC2_mass_normalized = np.copy(KlimaC2_mass)
+KlimaC2_mass_normalized[:, 1] = KlimaC2_mass[:, 1] / KlimaC2_mass[0, 1]
+
 KlimaC6_mass_normalized = np.copy(KlimaC6_mass)
 KlimaC6_mass_normalized[:, 1] = KlimaC6_mass[:, 1] / KlimaC6_mass[0, 1]
 
@@ -180,9 +229,11 @@ KlimaD9_mass_normalized[:, 1] = KlimaD9_mass[:, 1] / KlimaD9_mass[0, 1]
 
 # Change motor weights etc here, interpolation still happens according to the mass loss curve
 motor_specs = {
+    "Klima C2": {"propellant_mass": 0.0113, "burn_time": KlimaC2[-1, 0], "total_motor_mass": 0.0224},
     "Klima C6": {"propellant_mass": 0.0096, "burn_time": KlimaC6[-1, 0], "total_motor_mass": 0.0205},
     "Klima D3": {"propellant_mass": 0.017, "burn_time": KlimaD3[-1, 0], "total_motor_mass": 0.0279},
     "Klima D9": {"propellant_mass": 0.0161, "burn_time": KlimaD9[-1, 0], "total_motor_mass": 0.0271},
+    "None": {"propellant_mass": 0.0, "burn_time": 0, "total_motor_mass": 0.0},
 }
 
 
@@ -191,9 +242,11 @@ col1, col2 = st.columns(2)
 with col1:
     st.subheader("Ascent")
     numOfMotors = st.slider("Number of Ascent Motors", 1, 5, value=2)
-    motor_choice = st.selectbox("Select Motor for Ascent", ["Klima D9","Klima D3", "Klima C6"])
+    motor_choice = st.selectbox("Select Motor for Ascent", ["Klima D9","Klima D3","Klima C2", "Klima C6"])
 
-    if motor_choice == "Klima C6":
+    if motor_choice == "Klima C2":
+        thrust_data = KlimaC2
+    elif motor_choice == "Klima C6":
         thrust_data = KlimaC6
     elif motor_choice == "Klima D3":
         thrust_data = KlimaD3
@@ -212,25 +265,20 @@ ascent_propellant_mass = motor_specs[motor_choice]["propellant_mass"] * numOfMot
 with col2:
     st.subheader("Landing")
     numOfDescentMotors = st.slider("Number of Descent Motors", 1, 5, value=2)
-    landing_motor_choice = st.selectbox("Select Landing Motor", ["Klima D3", "Klima D9", "Klima C6", "None"])
+    landing_motor_choice = st.selectbox("Select Landing Motor", ["Klima D3", "Klima D9", "Klima C2", "Klima C6", "None"])
 
     # Define landing motor thrust curve
-    if landing_motor_choice == "Klima C6":
+    if landing_motor_choice == "Klima C2":
+        landing_thrust_data = KlimaC2
+    elif landing_motor_choice == "Klima C6":
         landing_thrust_data = KlimaC6
-        landing_burn_time = motor_specs["Klima C6"]["burn_time"]
-        landing_propellant_mass = motor_specs["Klima C6"]["propellant_mass"] * numOfDescentMotors
     elif landing_motor_choice == "Klima D3":
         landing_thrust_data = KlimaD3
-        landing_burn_time = motor_specs["Klima D3"]["burn_time"]
-        landing_propellant_mass = motor_specs["Klima D3"]["propellant_mass"] * numOfDescentMotors
     elif landing_motor_choice == "Klima D9":
         landing_thrust_data = KlimaD9
-        landing_burn_time = motor_specs["Klima D9"]["burn_time"]
-        landing_propellant_mass = motor_specs["Klima D9"]["propellant_mass"] * numOfDescentMotors
-    else:
-        landing_thrust_data = np.array([[0, 0]])  # No thrust
-        landing_burn_time = 0.0
-        landing_propellant_mass = 0.0
+    
+landing_burn_time = motor_specs[landing_motor_choice]["burn_time"]
+landing_propellant_mass = motor_specs[landing_motor_choice]["propellant_mass"] * numOfDescentMotors
 
 st.subheader("Delay After Apogee to Fire Landing Motor (s)")
 landing_motor_delay = st.slider("Delay", 0.0, 5.0, 1.0, step=0.01)
@@ -241,6 +289,8 @@ landing_thrust_func = interp1d(
 
 # Interpolation functions for normalized mass
 mass_profiles = {
+    "Klima C2": interp1d(KlimaC2_mass_normalized[:, 0], KlimaC2_mass_normalized[:, 1],
+                         bounds_error=False, fill_value=(1.0, 0.0)),
     "Klima C6": interp1d(KlimaC6_mass_normalized[:, 0], KlimaC6_mass_normalized[:, 1],
                          bounds_error=False, fill_value=(1.0, 0.0)),
     "Klima D3": interp1d(KlimaD3_mass_normalized[:, 0], KlimaD3_mass_normalized[:, 1],
@@ -253,6 +303,25 @@ ascent_mass_func = mass_profiles[motor_choice]
 landing_mass_func = mass_profiles[landing_motor_choice] if landing_motor_choice != "None" else lambda x: 0.0
 
 
+# Total motor masses
+total_ascent_motor_mass = motor_specs[motor_choice]["total_motor_mass"] * numOfMotors
+total_landing_motor_mass = motor_specs[landing_motor_choice]["total_motor_mass"] * numOfDescentMotors if landing_motor_choice != "None" else 0.0
+
+# Total propellant masses
+total_ascent_propellant_mass = motor_specs[motor_choice]["propellant_mass"] * numOfMotors
+total_landing_propellant_mass = motor_specs[landing_motor_choice]["propellant_mass"] * numOfDescentMotors if landing_motor_choice != "None" else 0.0
+
+# Total mass
+total_motor_mass = total_ascent_motor_mass + total_landing_motor_mass
+total_propellant_mass = total_ascent_propellant_mass + total_landing_propellant_mass
+dry_rocket_mass = mass - total_propellant_mass
+
+st.subheader("Mass Summary")
+st.markdown(f"""
+- **Total Motor Mass (with propellant)**: {total_motor_mass*1000:.1f} g  
+- **Total Propellant Mass**: {total_propellant_mass*1000:.1f} g  
+- **Dry Rocket Mass (without motors)**: {dry_rocket_mass*1000:.1f} g
+""")
 
 
 # Interpolate thrust curve
