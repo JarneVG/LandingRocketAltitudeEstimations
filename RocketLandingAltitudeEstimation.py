@@ -13,20 +13,58 @@ from matplotlib.animation import PillowWriter
 st.title("Rocket Altitude Simulation")
 
 # === SIMULATION PARAMETERS ===
-t_max = st.number_input("Total Simulation Time (s)", value=15.0)
+t_max = st.number_input("Total Simulation Time (s)", value=30.0)
 dt = 0.001
 n_steps = int(t_max / dt)
+
+
+def air_density_with_humidity(temperature_C, relative_humidity, pressure_Pa=101325):
+    """
+    Calculate moist air density from temperature, pressure, and relative humidity.
+
+    Parameters:
+        temperature_C (float): Temperature in °C
+        relative_humidity (float): Relative humidity in % (0-100)
+        pressure_Pa (float): Ambient pressure in Pascals (default = sea level)
+
+    Returns:
+        float: Moist air density in kg/m³
+    """
+    # Constants
+    R_d = 287.05     # J/(kg·K), for dry air
+    R_v = 461.495    # J/(kg·K), for water vapor
+
+    # Convert temperature to Kelvin
+    T = temperature_C + 273.15
+
+    # Saturation vapor pressure over water (in Pa)
+    p_sat = 610.78 * 10 ** (7.5 * temperature_C / (237.3 + temperature_C))
+
+    # Actual vapor pressure (Pa)
+    p_v = (relative_humidity / 100.0) * p_sat
+
+    # Partial pressure of dry air (Pa)
+    p_d = pressure_Pa - p_v
+
+    # Air density (kg/m³)
+    density = (p_d / (R_d * T)) + (p_v / (R_v * T))
+
+    return density
 
 
 # === INPUT PARAMETERS ===
 st.subheader("Select Rocket Parameters")
 mass = st.number_input("Starting Rocket Mass (g)", value=595)
 mass = mass/1000
-drag_coefficient = st.number_input("Drag Coefficient", value=1.5)
-rho = 1.17
+drag_coefficient = st.number_input("Drag Coefficient", value=0.8)
 diameter = st.number_input("Rocket Diameter (m)", value=0.066)
 area = np.pi * diameter**2
 g = 9.81
+
+temperature_C = st.slider("Ambient Temperature (°C)", value=20.0, min_value=-10.0, max_value=50.0, step=1.0, format="%d")
+humidity_percent = st.slider("Relative Humidity (%)", value=50, min_value=0, max_value=100)
+rho = air_density_with_humidity(temperature_C, humidity_percent)  # Calculate air density based on temperature
+st.write(f"Air Density: {rho:.2f} kg/m³")
 
 
 
@@ -214,6 +252,68 @@ KlimaD9_mass = np.array([
     [2.242, 0.0000],
 ])
 
+
+EstesF15 = np.array([
+    [0.0, 0.0],
+    [0.148, 7.638],
+    [0.228, 12.253],
+    [0.294, 16.391],
+    [0.353, 20.21],
+    [0.382, 22.756],
+    [0.419, 25.26],
+    [0.477, 23.074],
+    [0.52, 20.845],
+    [0.593, 19.093],
+    [0.688, 17.5],
+    [0.855, 16.225],
+    [1.037, 15.427],
+    [1.205, 14.948],
+    [1.423, 14.627],
+    [1.452, 15.741],
+    [1.503, 14.785],
+    [1.736, 14.623],
+    [1.955, 14.303],
+    [2.21, 14.141],
+    [2.494, 13.819],
+    [2.763, 13.338],
+    [3.12, 13.334],
+    [3.382, 13.013],
+    [3.404, 9.352],
+    [3.418, 4.895],
+    [3.45, 0.0]
+])
+
+EstesF15_mass = np.array([
+    [0.0, 60.0],
+    [0.148, 59.3164],
+    [0.228, 58.3541],
+    [0.294, 57.2108],
+    [0.353, 55.905],
+    [0.382, 55.1514],
+    [0.419, 54.0771],
+    [0.477, 52.3818],
+    [0.52, 51.2397],
+    [0.593, 49.4767],
+    [0.688, 47.3744],
+    [0.855, 43.9685],
+    [1.037, 40.4849],
+    [1.205, 37.3989],
+    [1.423, 33.5],
+    [1.452, 32.9674],
+    [1.503, 32.026],
+    [1.736, 27.8823],
+    [1.955, 24.0514],
+    [2.21, 19.6652],
+    [2.494, 14.8632],
+    [2.763, 10.4455],
+    [3.12, 4.68731],
+    [3.382, 0.51289],
+    [3.404, 0.215344],
+    [3.418, 0.0947253],
+    [3.45, 0.0]
+])
+
+
 KlimaC2_mass_normalized = np.copy(KlimaC2_mass)
 KlimaC2_mass_normalized[:, 1] = KlimaC2_mass[:, 1] / KlimaC2_mass[0, 1]
 
@@ -226,6 +326,9 @@ KlimaD3_mass_normalized[:, 1] = KlimaD3_mass[:, 1] / KlimaD3_mass[0, 1]
 KlimaD9_mass_normalized = np.copy(KlimaD9_mass)
 KlimaD9_mass_normalized[:, 1] = KlimaD9_mass[:, 1] / KlimaD9_mass[0, 1]
 
+EstesF15_mass_normalized = np.copy(EstesF15_mass)
+EstesF15_mass_normalized[:, 1] = EstesF15_mass[:, 1] / EstesF15_mass[0, 1]
+
 
 # Change motor weights etc here, interpolation still happens according to the mass loss curve
 motor_specs = {
@@ -233,50 +336,50 @@ motor_specs = {
     "Klima C6": {"propellant_mass": 0.0096, "burn_time": KlimaC6[-1, 0], "total_motor_mass": 0.0205},
     "Klima D3": {"propellant_mass": 0.017, "burn_time": KlimaD3[-1, 0], "total_motor_mass": 0.0279},
     "Klima D9": {"propellant_mass": 0.0161, "burn_time": KlimaD9[-1, 0], "total_motor_mass": 0.0271},
+    "Estes F15": {"propellant_mass": 0.060, "burn_time": EstesF15[-1, 0], "total_motor_mass": 0.102},
     "None": {"propellant_mass": 0.0, "burn_time": 0, "total_motor_mass": 0.0},
 }
 
 
 col1, col2 = st.columns(2)
-
 with col1:
     st.subheader("Ascent")
-    numOfMotors = st.slider("Number of Ascent Motors", 1, 5, value=2)
-    motor_choice = st.selectbox("Select Motor for Ascent", ["Klima D9","Klima D3","Klima C2", "Klima C6"])
+    numOfMotors = st.slider("Number of Ascent Motors", 1, 6, value=2)
+    motor_choice = st.selectbox("Select Motor for Ascent", ["Klima D3", "Klima D9", "Klima C2", "Klima C6", "Estes F15"])
 
-    if motor_choice == "Klima C2":
-        thrust_data = KlimaC2
-    elif motor_choice == "Klima C6":
-        thrust_data = KlimaC6
-    elif motor_choice == "Klima D3":
-        thrust_data = KlimaD3
-    elif motor_choice == "Klima D9":
-        thrust_data = KlimaD9
+    # Map motor names to thrust data arrays
+    thrust_data_dict = {
+        "Klima C2": KlimaC2,
+        "Klima C6": KlimaC6,
+        "Klima D3": KlimaD3,
+        "Klima D9": KlimaD9,
+        "Estes F15": EstesF15,
+    }
+    thrust_data = thrust_data_dict[motor_choice]
 
-    ejectAscentMotor = st.checkbox("Eject Ascent Motor At Burnout", value=True)
-
+    ejectAscentMotor = st.checkbox("Eject Ascent Motor At Burnout", value=False)
 
 ejected_motor_mass = motor_specs[motor_choice]["total_motor_mass"] - motor_specs[motor_choice]["propellant_mass"]
-ejected_motor_mass = ejected_motor_mass* numOfMotors
+ejected_motor_mass = ejected_motor_mass * numOfMotors
 ascent_burn_time = motor_specs[motor_choice]["burn_time"]
 ascent_propellant_mass = motor_specs[motor_choice]["propellant_mass"] * numOfMotors
 
-
 with col2:
     st.subheader("Landing")
-    numOfDescentMotors = st.slider("Number of Descent Motors", 1, 5, value=2)
-    landing_motor_choice = st.selectbox("Select Landing Motor", ["Klima D3", "Klima D9", "Klima C2", "Klima C6", "None"])
+    numOfDescentMotors = st.slider("Number of Descent Motors", 1, 6, value=2)
+    landing_motor_choice = st.selectbox("Select Landing Motor", ["Klima D3", "Klima D9", "Klima C2", "Klima C6", "Estes F15", "None"])
 
-    # Define landing motor thrust curve
-    if landing_motor_choice == "Klima C2":
-        landing_thrust_data = KlimaC2
-    elif landing_motor_choice == "Klima C6":
-        landing_thrust_data = KlimaC6
-    elif landing_motor_choice == "Klima D3":
-        landing_thrust_data = KlimaD3
-    elif landing_motor_choice == "Klima D9":
-        landing_thrust_data = KlimaD9
-    
+    # Map landing motor names to thrust data arrays
+    landing_thrust_data_dict = {
+        "Klima C2": KlimaC2,
+        "Klima C6": KlimaC6,
+        "Klima D3": KlimaD3,
+        "Klima D9": KlimaD9,
+        "Estes F15": EstesF15,
+        "None": np.array([[0, 0]])
+    }
+    landing_thrust_data = landing_thrust_data_dict[landing_motor_choice]
+
 landing_burn_time = motor_specs[landing_motor_choice]["burn_time"]
 landing_propellant_mass = motor_specs[landing_motor_choice]["propellant_mass"] * numOfDescentMotors
 
@@ -297,6 +400,8 @@ mass_profiles = {
                          bounds_error=False, fill_value=(1.0, 0.0)),
     "Klima D9": interp1d(KlimaD9_mass_normalized[:, 0], KlimaD9_mass_normalized[:, 1],
                          bounds_error=False, fill_value=(1.0, 0.0)),
+    "Estes F15": interp1d(EstesF15_mass_normalized[:, 0], EstesF15_mass_normalized[:, 1],
+                         bounds_error=False, fill_value=(1.0, 0.0)),
 }
 
 ascent_mass_func = mass_profiles[motor_choice]
@@ -314,7 +419,7 @@ total_landing_propellant_mass = motor_specs[landing_motor_choice]["propellant_ma
 # Total mass
 total_motor_mass = total_ascent_motor_mass + total_landing_motor_mass
 total_propellant_mass = total_ascent_propellant_mass + total_landing_propellant_mass
-dry_rocket_mass = mass - total_propellant_mass
+dry_rocket_mass = mass - total_ascent_motor_mass - total_landing_motor_mass
 
 st.subheader("Mass Summary")
 st.markdown(f"""
@@ -451,6 +556,11 @@ ax.set_ylabel("Altitude / Thrust")
 ax.set_title("Rocket Altitude and Thrust Profile")
 ax.legend()
 ax.grid(True)
+
+with st.sidebar:
+    st.subheader("Simulation Results")
+    st.pyplot(fig)  # or st.plotly_chart(fig)
+    st.write(f"Max Altitude: {max_altitude:.2f} m")
 
 drop_height = (touchdown_velocity ** 2) / (2 * g)
 # Compose annotation text without empty lines
